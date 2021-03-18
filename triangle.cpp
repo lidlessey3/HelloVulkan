@@ -1229,8 +1229,6 @@ void HelloTriangleApplication::createTextureImage() {
     transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                           VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);    // and then preper it for the shader
 
-    std::cout << "*****************************\n LOADED THE TEXTURE\n**************************" << std::endl;
-
     // cleaning up stuff
     vkDestroyBuffer(device, staginBuffer, nullptr);
     vkFreeMemory(device, stagingBufferMemory, nullptr);
