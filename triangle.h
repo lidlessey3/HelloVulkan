@@ -45,6 +45,7 @@ private:
     struct Vertex {
         glm::vec3 pos;
         glm::vec3 color;
+        glm::vec3 texCoord;
 
         static VkVertexInputBindingDescription getBindingDescription() {    // telling vulkan how to pass this data to the GPU
             VkVertexInputBindingDescription bindingDescription {};          // Describes at which rate to feed them
@@ -55,8 +56,8 @@ private:
             return bindingDescription;
         }
 
-        static std::array<VkVertexInputAttributeDescription, 2> getAttributeDescriptions() {
-            std::array<VkVertexInputAttributeDescription, 2> attributeDescription {};
+        static std::array<VkVertexInputAttributeDescription, 3> getAttributeDescriptions() {
+            std::array<VkVertexInputAttributeDescription, 3> attributeDescription {};
             attributeDescription[0].binding  = 0;
             attributeDescription[0].location = 0;                             // location in the input
             attributeDescription[0].format   = VK_FORMAT_R32G32B32_SFLOAT;    // the dimension of the array
@@ -66,6 +67,11 @@ private:
             attributeDescription[1].location = 1;
             attributeDescription[1].format   = VK_FORMAT_R32G32B32_SFLOAT;
             attributeDescription[1].offset   = offsetof(Vertex, color);
+
+            attributeDescription[2].binding  = 0;
+            attributeDescription[2].location = 2;
+            attributeDescription[2].format   = VK_FORMAT_R32G32B32_SFLOAT;
+            attributeDescription[2].offset   = offsetof(Vertex, texCoord);
 
             return attributeDescription;
         }
@@ -78,11 +84,11 @@ private:
     };
 
     // Internal variables
-    const std::vector<Vertex> verticies = { { { 0.5f, -0.5f, -0.5f }, { 0.0f, 0.0f, 1.0f } },    // constant values of vertecies
-                                            { { 0.5f, 0.5f, -0.5f }, { 0.8f, 0.0f, 1.0f } },   { { 0.5f, 0.5f, 0.5f }, { 0.0f, 0.0f, 1.0f } },
-                                            { { 0.5f, -0.5f, 0.5f }, { 0.0f, 0.0f, 1.0f } },   { { -0.5f, -0.5f, 0.5f }, { 0.0f, 1.0f, 0.0f } },
-                                            { { -0.5f, -0.5f, -0.5f }, { 0.0f, 1.0f, 0.0f } }, { { -0.5f, 0.5f, 0.5f }, { 0.0f, 1.0f, 0.0f } },
-                                            { { -0.5f, 0.5f, -0.5f }, { 0.0f, 1.0f, 0.2f } } };
+    const std::vector<Vertex> verticies = { { { 0.5f, -0.5f, -0.5f }, { 0.0f, 0.0f, 1.0f }, {1.0f, 0.0f, 0.0f} },    // constant values of vertices
+                                            { { 0.5f, 0.5f, -0.5f }, { 0.8f, 0.0f, 1.0f }, {1.0f,1.0f,0.0f} },   { { 0.5f, 0.5f, 0.5f }, { 0.0f, 0.0f, 1.0f }, {1.0f,1.0f,1.0f} },
+                                            { { 0.5f, -0.5f, 0.5f }, { 0.0f, 0.0f, 1.0f },{1.0f,0.0f,1.0f} },   { { -0.5f, -0.5f, 0.5f }, { 0.0f, 1.0f, 0.0f },{0.0f,0.0f,1.0f} },
+                                            { { -0.5f, -0.5f, -0.5f }, { 0.0f, 1.0f, 0.0f }, {0.0f,0.0f,0.0f} }, { { -0.5f, 0.5f, 0.5f }, { 0.0f, 1.0f, 0.0f }, {0.0f,1.0f,1.0f} },
+                                            { { -0.5f, 0.5f, -0.5f }, { 0.8f, 1.0f, 0.0f }, {0.0f,1.0f,0.0f} } };
 
     const std::vector<uint16_t> verticiesIndices = {
         0, 3, 1, 1, 3, 2, 0, 5, 3, 3, 5, 4, 3, 4, 2, 2, 4, 6, 0, 1, 5, 5, 1, 7, 5, 7, 4, 4, 7, 6, 7, 1, 6, 6, 1, 2
@@ -124,6 +130,10 @@ private:
     std::vector<VkDeviceMemory> uniformBuffersMemory;    // their memory locations
     VkDescriptorPool descriptorPool;                     // the descriptor pool
     std::vector<VkDescriptorSet> descriptorSets;         // the sets of the above pool
+    VkImage textureImage;                                // the handle to image
+    VkDeviceMemory textureImageMemory;                   // the memory where the image will be stored
+    VkImageView textureImageView;                        // the view of the texture image
+    VkSampler textureSampler;                            // the handle for the sampling
     std::vector<const char *> deviceRequiredExtensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };    // required extension from the graphic card
 
     // to count the time
@@ -174,6 +184,16 @@ private:
     void updateUniforBuffer(uint32_t currentImage);                                    // updates the matrixes of the uniform buffers
     void createDescriptorPool();                                                       // will create a descriptor pool for each uniform buffer
     void createDescriptorSets();                                                       // now that we have a pool we can create sets
+    void createTextureImage();                                                         // loads an image into memory
+    void createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage &image,
+                     VkDeviceMemory &imageMemory);                                                          // loads the image into memory
+    VkCommandBuffer beginSingleTimeCommands(VkCommandPool commandPool);                                     // will initialize a command buffer to make a single time commnad
+    void endSingleTimeCommands(VkCommandBuffer commandBuffer, VkQueue queue, VkCommandPool commandPool);    // will terminate the buffer create in the above function
+    void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout);    // sets the image in the right layout so it can then be copied
+    void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);                         // will copy the image from buffer to image
+    void createTextureImageView();                                                                                   // I create the image view for the textureimage
+    VkImageView createImageView(VkImage image, VkFormat format, VkImageViewType viewType, uint32_t layerCount);                           // helper function to create an image view
+    void createTextureSampler();    // creates a textures sampler to tell the shader what sampling to apply when reading the image data
 };
 
 static std::vector<char> readFile(const std::string &path);    // loads the given file into memory

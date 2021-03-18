@@ -6,7 +6,7 @@ enable_testing()
 
 set(CMAKE_CXX_STANDARD 17)
 
-add_executable(reeee main.cpp triangle.cpp)
+add_executable(reeee main.cpp triangle.cpp quickAndDirty.cpp)
 target_link_libraries(reeee glfw vulkan dl pthread X11 Xxf86vm Xrandr Xi)
 
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
