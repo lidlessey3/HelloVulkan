@@ -1,4 +1,5 @@
 #include "triangle.h"
+#include "objLoader.h"
 #include "quickAndDirtyBMP.h"
 #include <GLFW/glfw3.h>
 #include <algorithm>
@@ -64,6 +65,7 @@ void HelloTriangleApplication::initVulkan() {
     createTextureImage();           // loads the image texture into memory
     createTextureImageView();       // now that the texture image is loaded into memory is time to create the image view
     createTextureSampler();         // creates the sampler
+    loadModel();    // loads the model to vertex buffer
     createVertexBuffer();           // create vertex buffer
     createIndexBuffer();            // creates the index buffer
     createUniformBuffers();         // creates the uniform buffers
@@ -1216,7 +1218,8 @@ void HelloTriangleApplication::createTextureImage() {
     void *data;
     vkMapMemory(device, stagingBufferMemory, 0, imageSize, 0, &data);
     for (int i = 0; i < 6; i++)
-        memcpy((void *)((uint64_t)/* Doing this to avoid a warning from the compiler*/data + i * imageSize / 6), pixels, static_cast<size_t>(imageSize / 6));    // coping the image six times
+        memcpy((void *) ((uint64_t) /* Doing this to avoid a warning from the compiler*/ data + i * imageSize / 6), pixels,
+               static_cast<size_t>(imageSize / 6));    // coping the image six times
     vkUnmapMemory(device, stagingBufferMemory);
 
     delete[] pixels;    // I free the pixels
@@ -1469,6 +1472,13 @@ void HelloTriangleApplication::createTextureSampler() {
     // now time for actually creating the thing
     if (vkCreateSampler(device, &samplerInfo, nullptr, &textureSampler) != VK_SUCCESS)
         throw std::runtime_error("Unable to create the sample.");
+}
+
+void HelloTriangleApplication::loadModel() {
+    objloader::ObjData objData;
+    objloader::loadObj(objData, "../models/rat.obj");
+
+    
 }
 
 // void HelloTriangleApplication::updatePos() {

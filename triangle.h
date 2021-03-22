@@ -84,11 +84,13 @@ private:
     };
 
     // Internal variables
-    const std::vector<Vertex> verticies = { { { 0.5f, -0.5f, -0.5f }, { 0.0f, 0.0f, 1.0f }, {1.0f, 0.0f, 0.0f} },    // constant values of vertices
-                                            { { 0.5f, 0.5f, -0.5f }, { 0.8f, 0.0f, 1.0f }, {1.0f,1.0f,0.0f} },   { { 0.5f, 0.5f, 0.5f }, { 0.0f, 0.0f, 1.0f }, {1.0f,1.0f,1.0f} },
-                                            { { 0.5f, -0.5f, 0.5f }, { 0.0f, 0.0f, 1.0f },{1.0f,0.0f,1.0f} },   { { -0.5f, -0.5f, 0.5f }, { 0.0f, 1.0f, 0.0f },{0.0f,0.0f,1.0f} },
-                                            { { -0.5f, -0.5f, -0.5f }, { 0.0f, 1.0f, 0.0f }, {0.0f,0.0f,0.0f} }, { { -0.5f, 0.5f, 0.5f }, { 0.0f, 1.0f, 0.0f }, {0.0f,1.0f,1.0f} },
-                                            { { -0.5f, 0.5f, -0.5f }, { 0.8f, 1.0f, 0.0f }, {0.0f,1.0f,0.0f} } };
+    const std::vector<Vertex> verticies = {
+        { { 0.5f, -0.5f, -0.5f }, { 0.0f, 0.0f, 1.0f }, { 1.0f, 0.0f, 0.0f } },    // constant values of vertices
+        { { 0.5f, 0.5f, -0.5f }, { 0.8f, 0.0f, 1.0f }, { 1.0f, 1.0f, 0.0f } },   { { 0.5f, 0.5f, 0.5f }, { 0.0f, 0.0f, 1.0f }, { 1.0f, 1.0f, 1.0f } },
+        { { 0.5f, -0.5f, 0.5f }, { 0.0f, 0.0f, 1.0f }, { 1.0f, 0.0f, 1.0f } },   { { -0.5f, -0.5f, 0.5f }, { 0.0f, 1.0f, 0.0f }, { 0.0f, 0.0f, 1.0f } },
+        { { -0.5f, -0.5f, -0.5f }, { 0.0f, 1.0f, 0.0f }, { 0.0f, 0.0f, 0.0f } }, { { -0.5f, 0.5f, 0.5f }, { 0.0f, 1.0f, 0.0f }, { 0.0f, 1.0f, 1.0f } },
+        { { -0.5f, 0.5f, -0.5f }, { 0.8f, 1.0f, 0.0f }, { 0.0f, 1.0f, 0.0f } }
+    };
 
     const std::vector<uint16_t> verticiesIndices = {
         0, 3, 1, 1, 3, 2, 0, 5, 3, 3, 5, 4, 3, 4, 2, 2, 4, 6, 0, 1, 5, 5, 1, 7, 5, 7, 4, 4, 7, 6, 7, 1, 6, 6, 1, 2
@@ -192,8 +194,9 @@ private:
     void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout);    // sets the image in the right layout so it can then be copied
     void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);                         // will copy the image from buffer to image
     void createTextureImageView();                                                                                   // I create the image view for the textureimage
-    VkImageView createImageView(VkImage image, VkFormat format, VkImageViewType viewType, uint32_t layerCount);                           // helper function to create an image view
+    VkImageView createImageView(VkImage image, VkFormat format, VkImageViewType viewType, uint32_t layerCount);      // helper function to create an image view
     void createTextureSampler();    // creates a textures sampler to tell the shader what sampling to apply when reading the image data
+    void loadModel();               // loads a model to memory
 };
 
 static std::vector<char> readFile(const std::string &path);    // loads the given file into memory
