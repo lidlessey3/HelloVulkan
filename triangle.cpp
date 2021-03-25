@@ -60,12 +60,13 @@ void HelloTriangleApplication::initVulkan() {
     createRenderPass();             // I add this before closing the pipeline
     createDescriptorSetLayout();    // sets the bindign for the shader
     createGraphicsPipeline();       // I create my death :)
-    createFrameBuffer();            // I create the frame buffer
     createCommandPool();            // allocate the command pool to be able to create command buffers for later
+    createDepthResources();         // setup depth things
+    createFrameBuffer();            // I create the frame buffer
     createTextureImage();           // loads the image texture into memory
     createTextureImageView();       // now that the texture image is loaded into memory is time to create the image view
     createTextureSampler();         // creates the sampler
-    loadModel();    // loads the model to vertex buffer
+    loadModel();                    // loads the model to vertex buffer
     createVertexBuffer();           // create vertex buffer
     createIndexBuffer();            // creates the index buffer
     createUniformBuffers();         // creates the uniform buffers
@@ -93,6 +94,7 @@ void HelloTriangleApplication::recreateSwapChain() {
     createImageViews();
     createRenderPass();
     createGraphicsPipeline();
+    createDepthResources();
     createFrameBuffer();
     createUniformBuffers();
     createDescriptorPool();
@@ -149,6 +151,11 @@ void HelloTriangleApplication::cleanup() {
 }
 
 void HelloTriangleApplication::cleanupSwapChain() {
+    // destroing the swapchain
+    vkDestroyImageView(device, depthImageView, nullptr);
+    vkDestroyImage(device, depthImage, nullptr);
+    vkFreeMemory(device, depthImageMemory, nullptr);
+
     for (auto framebuffer : swapChainFrameBuffer)    // destroy all the frame buffers
         vkDestroyFramebuffer(device, framebuffer, nullptr);
 
@@ -500,7 +507,7 @@ void HelloTriangleApplication::createImageViews() {
         //     throw std::runtime_error("Unable to create images views! I DO NOT WANT TO GO ON LIVING!!");
 
         // NOTE: the above has been replaced in the function create image view
-        swapChainImageViews[i] = createImageView(swapChainImages[i], swapChainFormat, VK_IMAGE_VIEW_TYPE_2D, 1);
+        swapChainImageViews[i] = createImageView(swapChainImages[i], swapChainFormat, VK_IMAGE_VIEW_TYPE_2D, 1, VK_IMAGE_ASPECT_COLOR_BIT);
     }
 }
 
@@ -545,6 +552,17 @@ void HelloTriangleApplication::createGraphicsPipeline() {    // NOTE: I fear the
     // inputAssembly.topology               = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP;    // I reuse the second and third verticies with the forth to create a tringle
     inputAssembly.primitiveRestartEnable = VK_FALSE;
 
+    VkPipelineDepthStencilStateCreateInfo depthStencil {};    // used to enable depth testing
+    depthStencil.sType            = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+    depthStencil.depthTestEnable  = VK_TRUE;    // whether to to test if new fragment should be drawn or not
+    depthStencil.depthWriteEnable = VK_TRUE;    // if the test is passed the new value should be be written to the depth image
+
+    depthStencil.depthCompareOp = VK_COMPARE_OP_LESS;    // it should pass the test if the new value is less than the previous
+
+    depthStencil.depthBoundsTestEnable = VK_FALSE;    // I do not want to limit the depth to a specific range
+
+    depthStencil.stencilTestEnable = VK_FALSE;    // should try to understand what the fuck this is at a later time :)
+
     VkViewport viewport {};    // it specifies the region of the frame buffer the ouput will be rendered to
     // in this case, as in the vast majority of case it will be as big as the window we are drawing to is
     viewport.x      = 0.0f;
@@ -570,14 +588,14 @@ void HelloTriangleApplication::createGraphicsPipeline() {    // NOTE: I fear the
     // Rasterizer
     VkPipelineRasterizationStateCreateInfo rasterizer {};
     rasterizer.sType                   = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-    rasterizer.depthBiasClamp          = VK_FALSE;                   // to do this a particular GPU feature needs to be enabled, it was not
-    rasterizer.rasterizerDiscardEnable = VK_FALSE;                   // if set to true nothing gets outputed from the rasterizer
-    rasterizer.polygonMode             = VK_POLYGON_MODE_FILL;       // fill polygons with fragments
-    rasterizer.lineWidth               = 1.0f;                       // the number of fragments per line, a bigger number requires to enable a GPU feature
-    rasterizer.cullMode                = VK_CULL_MODE_BACK_BIT;      // type of cull, what a cull is though is unkown
-    rasterizer.frontFace               = VK_FRONT_FACE_CLOCKWISE;    // the order of verticies to consider a face front facing or not
-    // rasterizer.frontFace       = VK_FRONT_FACE_COUNTER_CLOCKWISE;   // I change this because I do a Y - flip and so the order of the verticies gets reversed
-    rasterizer.depthBiasEnable = VK_FALSE;    // used to alter the depth values
+    rasterizer.depthBiasClamp          = VK_FALSE;                 // to do this a particular GPU feature needs to be enabled, it was not
+    rasterizer.rasterizerDiscardEnable = VK_FALSE;                 // if set to true nothing gets outputed from the rasterizer
+    rasterizer.polygonMode             = VK_POLYGON_MODE_FILL;     // fill polygons with fragments
+    rasterizer.lineWidth               = 1.0f;                     // the number of fragments per line, a bigger number requires to enable a GPU feature
+    rasterizer.cullMode                = VK_CULL_MODE_BACK_BIT;    // type of cull, what a cull is though is unkown
+    // rasterizer.frontFace               = VK_FRONT_FACE_CLOCKWISE;    // the order of verticies to consider a face front facing or not
+    rasterizer.frontFace       = VK_FRONT_FACE_COUNTER_CLOCKWISE;    // I change this because I do a Y - flip and so the order of the verticies gets reversed
+    rasterizer.depthBiasEnable = VK_FALSE;                           // used to alter the depth values
 
     // multisapling, aka one of the ways to perform anti-aliasing, it is disabled though as it needs a GPU feature not enable at the moment
     VkPipelineMultisampleStateCreateInfo multisampling {};
@@ -623,7 +641,7 @@ void HelloTriangleApplication::createGraphicsPipeline() {    // NOTE: I fear the
     pipelineInfo.pViewportState      = &viewportState;
     pipelineInfo.pRasterizationState = &rasterizer;
     pipelineInfo.pMultisampleState   = &multisampling;
-    pipelineInfo.pDepthStencilState  = nullptr;    // Optional
+    pipelineInfo.pDepthStencilState  = &depthStencil;    // adding depth support
     pipelineInfo.pColorBlendState    = &colorBlending;
     pipelineInfo.pDynamicState       = nullptr;    // Optional
 
@@ -668,34 +686,54 @@ void HelloTriangleApplication::createRenderPass() {
     colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;          // I don0t know what I get at the begginning
     colorAttachment.finalLayout   = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;    // will be presented on the swap chain
 
+    // depth attachment
+    VkAttachmentDescription depthAttachment {};
+    depthAttachment.format         = findDepthFormat();
+    depthAttachment.samples        = VK_SAMPLE_COUNT_1_BIT;
+    depthAttachment.loadOp         = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    depthAttachment.storeOp        = VK_ATTACHMENT_STORE_OP_DONT_CARE;    // don't care about storing this data at all
+    depthAttachment.stencilLoadOp  = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    depthAttachment.initialLayout  = VK_IMAGE_LAYOUT_UNDEFINED;
+    depthAttachment.finalLayout    = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
     // a single render pass can have multiple subpass
     VkAttachmentReference colorAttachmentRef {};
     colorAttachmentRef.attachment = 0;                                           // the index in the array of attachment descriptions and the location = 0 in the shaders
     colorAttachmentRef.layout     = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;    // this gives us the best performance possible
 
+    VkAttachmentReference depthAttachmentRef {};
+    depthAttachmentRef.attachment = 1;    // position in the array of attachment where this will be found
+    depthAttachmentRef.layout     = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
     // now defing the subpasses
     VkSubpassDescription subpass {};
-    subpass.pipelineBindPoint    = VK_PIPELINE_BIND_POINT_GRAPHICS;
-    subpass.colorAttachmentCount = 1;
-    subpass.pColorAttachments    = &colorAttachmentRef;
+    subpass.pipelineBindPoint       = VK_PIPELINE_BIND_POINT_GRAPHICS;
+    subpass.colorAttachmentCount    = 1;
+    subpass.pColorAttachments       = &colorAttachmentRef;
+    subpass.pDepthStencilAttachment = &depthAttachmentRef;
 
+    // creating the array of attachments
+    std::array<VkAttachmentDescription, 2> attachments = { colorAttachment, depthAttachment };
     // struct to crete the render pass
     VkRenderPassCreateInfo renderPassInfo {};
     renderPassInfo.sType           = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-    renderPassInfo.attachmentCount = 1;
-    renderPassInfo.pAttachments    = &colorAttachment;
+    renderPassInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
+    renderPassInfo.pAttachments    = attachments.data();
     renderPassInfo.subpassCount    = 1;
     renderPassInfo.pSubpasses      = &subpass;
 
     // configure subpasses so as to work correctly cause they are bitches
     // we make them wait until I take the image
     VkSubpassDependency dependacy {};
-    dependacy.srcSubpass    = VK_SUBPASS_EXTERNAL;                              // previous pass, the system one
-    dependacy.dstSubpass    = 0;                                                // the index of my pass
-    dependacy.srcStageMask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;    // what to wait for
-    dependacy.srcAccessMask = 0;                                                // in which stage it occurs
-    dependacy.dstStageMask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;    // prevent transition from happening until allowed
-    dependacy.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
+    dependacy.srcSubpass = VK_SUBPASS_EXTERNAL;    // previous pass, the system one
+    dependacy.dstSubpass = 0;                      // the index of my pass
+    dependacy.srcStageMask =
+        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT /*for the color*/ | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT /*for the depth thing*/;    // what to wait for
+    dependacy.srcAccessMask = 0;                                                                                                                 // in which stage it occurs
+    dependacy.dstStageMask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT /*for the color*/ |
+                             VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT /*for the depth thing*/;    // prevent transition from happening until allowed
+    dependacy.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 
     // append to the render pass
     renderPassInfo.dependencyCount = 1;
@@ -708,16 +746,16 @@ void HelloTriangleApplication::createRenderPass() {
 void HelloTriangleApplication::createFrameBuffer() {
     swapChainFrameBuffer.resize(swapChainImageViews.size());    // I resize it to make it match the size of the swapchain imageviews
 
-    for (int i = 0; i < swapChainFrameBuffer.size(); i++) {    // for every element in swapchain image view
-        VkImageView attachments[] = { swapChainImageViews[i] };
+    for (int i = 0; i < swapChainFrameBuffer.size(); i++) {                                     // for every element in swapchain image view
+        std::array<VkImageView, 2> attachments = { swapChainImageViews[i], depthImageView };    // added the depth image view
 
         // create the info struct
         VkFramebufferCreateInfo framebufferInfo {};
         framebufferInfo.sType           = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
         framebufferInfo.renderPass      = renderPass;
         framebufferInfo.layers          = 1;
-        framebufferInfo.attachmentCount = 1;
-        framebufferInfo.pAttachments    = attachments;
+        framebufferInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
+        framebufferInfo.pAttachments    = attachments.data();
         framebufferInfo.width           = swapChainExtent.width;
         framebufferInfo.height          = swapChainExtent.height;
 
@@ -775,9 +813,13 @@ void HelloTriangleApplication::createCommandBuffers() {
         beginRPInfo.renderArea.offset = { 0, 0 };
         beginRPInfo.renderArea.extent = swapChainExtent;
 
-        VkClearValue clearColor     = { 0.0f, 0.0f, 0.0f, 1.0f };    // black with opacity 1
-        beginRPInfo.clearValueCount = 1;
-        beginRPInfo.pClearValues    = &clearColor;
+        std::array<VkClearValue, 2> clearValues;
+
+        // same order as attachments
+        clearValues[0].color        = { 0.0f, 0.0f, 0.0f, 1.0f };    // black with opacity 1
+        clearValues[1].depthStencil = { 1.0f, 0 };                   // starting the fardest away that is possible
+        beginRPInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
+        beginRPInfo.pClearValues    = clearValues.data();
 
         vkCmdBeginRenderPass(commandBuffers[i], &beginRPInfo, VK_SUBPASS_CONTENTS_INLINE);
         vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
@@ -786,7 +828,7 @@ void HelloTriangleApplication::createCommandBuffers() {
         VkBuffer vertexBuffers[] = { vertexBuffer };
         VkDeviceSize offsets[]   = { 0 };
         vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexBuffers, offsets);
-        vkCmdBindIndexBuffer(commandBuffers[i], indexBuffer, 0, VK_INDEX_TYPE_UINT16);    // bind the index buffer
+        vkCmdBindIndexBuffer(commandBuffers[i], indexBuffer, 0, VK_INDEX_TYPE_UINT32);    // bind the index buffer
 
         /*
             modification from the future to add the uniform buffer binding :)
@@ -1111,16 +1153,16 @@ void HelloTriangleApplication::updateUniforBuffer(uint32_t currentImage) {
     float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
     UniformBufferObject ubo {};
-    ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(1.0f, -1.0f, 1.0f));    // generates rotation matrix of pi/2 every second around the z axis
+    ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));    // generates rotation matrix of pi/2 every second around the z axis
 
-    ubo.model = glm::scale(
-        ubo.model, glm::vec3(1.0f + glm::sin(time * glm::radians(45.0f)) / 2, 1.0f + glm::sin(time * glm::radians(45.0f)) / 2, 1.0f + glm::sin(time * glm::radians(45.0f)) / 2));
+    // ubo.model = glm::scale(
+    //     ubo.model, glm::vec3(1.0f + glm::sin(time * glm::radians(45.0f)) / 2, 1.0f + glm::sin(time * glm::radians(45.0f)) / 2, 1.0f + glm::sin(time * glm::radians(45.0f)) / 2));
 
-    ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f) /*coordinates of the camera*/, glm::vec3(0.0f, 0.0f, 0.0f) /*where the camera is looking at*/,
-                           glm::vec3(0.0f, 0.0f, 1.0f) /*where is up*/);    // setting the camera
+    ubo.view = glm::lookAt(glm::vec3(200.0f, 80.0f, 200.0f) /*coordinates of the camera*/, glm::vec3(0.0f, 0.0f, 0.0f) /*where the camera is looking at*/,
+                           glm::vec3(0.0f, 1.0f, 0.0f) /*where is up*/);    // setting the camera
 
     ubo.proj = glm::perspective(glm::radians(45.0f) /*field of view*/, swapChainExtent.width / (float) swapChainExtent.height /*aspect ration*/, 0.1f /*near plain*/,
-                                10.0f /*far plane(aka render distance)*/);
+                                1000.0f /*far plane(aka render distance)*/);
 
     ubo.proj[1][1] *= -1;    // flip the Y axis, as glm was designed for openGL, which inverts the Y axis, while vulkan does not
 
@@ -1225,12 +1267,12 @@ void HelloTriangleApplication::createTextureImage() {
     delete[] pixels;    // I free the pixels
 
     createImage(texWidth, texHeight, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-                VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, textureImage, textureImageMemory);
-    transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED,
-                          VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);                                                         // I transition the layout so it van be copied more easily
+                VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, textureImage, textureImageMemory, 6, VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT);
+    transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                          6);                                                                                            // I transition the layout so it van be copied more easily
     copyBufferToImage(staginBuffer, textureImage, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight));    // and copy the data from the buffer to the image
-    transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                          VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);    // and then preper it for the shader
+    transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                          6);    // and then preper it for the shader
 
     // cleaning up stuff
     vkDestroyBuffer(device, staginBuffer, nullptr);
@@ -1238,7 +1280,7 @@ void HelloTriangleApplication::createTextureImage() {
 }
 
 void HelloTriangleApplication::createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties,
-                                           VkImage &image, VkDeviceMemory &imageMemory) {
+                                           VkImage &image, VkDeviceMemory &imageMemory, uint32_t arrayLayers, VkImageCreateFlags flags) {
     VkImageCreateInfo imageInfo {};
     imageInfo.sType         = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
     imageInfo.imageType     = VK_IMAGE_TYPE_2D;
@@ -1246,14 +1288,14 @@ void HelloTriangleApplication::createImage(uint32_t width, uint32_t height, VkFo
     imageInfo.extent.height = height;
     imageInfo.extent.depth  = 1;
     imageInfo.mipLevels     = 1;
-    imageInfo.arrayLayers   = 6;
+    imageInfo.arrayLayers   = arrayLayers;
     imageInfo.format        = format;
     imageInfo.tiling        = tiling;
     imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     imageInfo.usage         = usage;
     imageInfo.samples       = VK_SAMPLE_COUNT_1_BIT;
     imageInfo.sharingMode   = VK_SHARING_MODE_EXCLUSIVE;
-    imageInfo.flags         = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
+    imageInfo.flags         = flags;
 
     if (vkCreateImage(device, &imageInfo, nullptr, &image) != VK_SUCCESS) {
         throw std::runtime_error("failed to create image!");
@@ -1344,7 +1386,7 @@ void HelloTriangleApplication::endSingleTimeCommands(VkCommandBuffer commandBuff
     vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);    // free the command buffer
 }
 
-void HelloTriangleApplication::transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout) {
+void HelloTriangleApplication::transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t layers) {
     VkCommandBuffer commandBuffer = beginSingleTimeCommands(commandPool);    // begin the command buffer
 
     VkImageMemoryBarrier barrier {};    // this is used to synchronize resources
@@ -1357,11 +1399,19 @@ void HelloTriangleApplication::transitionImageLayout(VkImage image, VkFormat for
     barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     barrier.image               = image;    // what image is this about
     // the following specify what specific part of the image that is affected
-    barrier.subresourceRange.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
+
+    if (newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
+        barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;    // it will be used for depth
+        if (hasStencilComponent(format)) {
+            barrier.subresourceRange.aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;    // add stencil support if it is present
+        }
+    } else
+        barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+
     barrier.subresourceRange.baseMipLevel   = 0;
     barrier.subresourceRange.levelCount     = 1;
     barrier.subresourceRange.baseArrayLayer = 0;
-    barrier.subresourceRange.layerCount     = 6;    // changing to 6 instead
+    barrier.subresourceRange.layerCount     = layers;    // changing to 6 instead
     // values sets to 0, but I'll be back to them later
     // barrier.srcAccessMask = 0;
     // barrier.dstAccessMask = 0;
@@ -1382,6 +1432,12 @@ void HelloTriangleApplication::transitionImageLayout(VkImage image, VkFormat for
 
         sourceStage      = VK_PIPELINE_STAGE_TRANSFER_BIT;
         destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+    } else if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
+        barrier.srcAccessMask = 0;                                                                                             // undefined so I don't care
+        barrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;    // wait to read/ write until this is finished
+
+        sourceStage      = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;             // START AT THE BEGINNING OF THE PIPELINE
+        destinationStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;    // end by that stage
     } else {
         throw std::invalid_argument("unsupported layout transition!");
     }
@@ -1415,17 +1471,18 @@ void HelloTriangleApplication::copyBufferToImage(VkBuffer buffer, VkImage image,
 
 void HelloTriangleApplication::createTextureImageView() {
     // very similar to the create image views
-    textureImageView = createImageView(textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_VIEW_TYPE_CUBE, 6);
+    textureImageView = createImageView(textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_VIEW_TYPE_CUBE, 6, VK_IMAGE_ASPECT_COLOR_BIT);
 }
 
-VkImageView HelloTriangleApplication::createImageView(VkImage image, VkFormat format, VkImageViewType viewType, uint32_t layerCount) {
+VkImageView HelloTriangleApplication::createImageView(VkImage image, VkFormat format, VkImageViewType viewType, uint32_t layerCount, VkImageAspectFlags aspectFlags) {
     VkImageViewCreateInfo viewInfo {};
     viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
     viewInfo.image = image;
     // viewInfo.viewType                        = VK_IMAGE_VIEW_TYPE_2D;
-    viewInfo.viewType                        = viewType;    // changed this cause I'm making a cube map
-    viewInfo.format                          = format;
-    viewInfo.subresourceRange.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
+    viewInfo.viewType = viewType;    // changed this cause I'm making a cube map
+    viewInfo.format   = format;
+    // viewInfo.subresourceRange.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
+    viewInfo.subresourceRange.aspectMask     = aspectFlags;
     viewInfo.subresourceRange.baseMipLevel   = 0;
     viewInfo.subresourceRange.levelCount     = 1;
     viewInfo.subresourceRange.baseArrayLayer = 0;
@@ -1476,9 +1533,53 @@ void HelloTriangleApplication::createTextureSampler() {
 
 void HelloTriangleApplication::loadModel() {
     objloader::ObjData objData;
-    objloader::loadObj(objData, "../models/rat.obj");
+    objloader::loadObj(objData, "../models/rat.obj");    // read the data from file
 
-    
+    for (int i = 0; i < objData.verticies.size(); i++) {    // loads the verticies into the correct struct
+        Vertex newVertex;
+        newVertex.pos        = objData.verticies[i].pos;
+        newVertex.color      = { 0.5f, 0.5f, 0.5f };    // the color is light grey
+        newVertex.texCoord   = glm::vec3(objData.verticies[i].textCoord, 0.0);
+        newVertex.texCoord.y = 1 - newVertex.texCoord.y;    // invert them as they expect the texture to be bottom up while it was loaded top bottom
+        verticies.push_back(newVertex);
+    }
+
+    verticiesIndices.resize(objData.indexes.size());    // resize the index vector
+    for (int i = 0; i < objData.indexes.size(); i++) {
+        verticiesIndices[i] = objData.indexes[i];    // copies the entire vector
+    }
+}
+
+void HelloTriangleApplication::createDepthResources() {
+    VkFormat depthFormat = findDepthFormat();    // get the depth format
+    createImage(swapChainExtent.width, swapChainExtent.height, depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+                VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, depthImage, depthImageMemory, 1, 0);
+    depthImageView = createImageView(depthImage, depthFormat, VK_IMAGE_VIEW_TYPE_2D, 1, VK_IMAGE_ASPECT_DEPTH_BIT);
+
+    transitionImageLayout(depthImage, depthFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, 1);    // transition the image to the right format
+}
+
+VkFormat HelloTriangleApplication::findSupportedFormat(const std::vector<VkFormat> &candidates, VkImageTiling tiling, VkFormatFeatureFlags features) {
+    for (VkFormat format : candidates) {    // I check each possible format to see if it is supported
+        VkFormatProperties props;
+        vkGetPhysicalDeviceFormatProperties(physicalDevice, format, &props);                              // supports depends on tiling and features
+        if (tiling == VK_IMAGE_TILING_LINEAR && (props.linearTilingFeatures & features) == features) {    // only this two paramenters are of interest at the moment
+            return format;
+        } else if (tiling == VK_IMAGE_TILING_OPTIMAL && (props.optimalTilingFeatures & features) == features) {
+            return format;
+        }
+    }
+
+    throw std::runtime_error("Unable to find a supported format!");
+}
+
+VkFormat HelloTriangleApplication::findDepthFormat() {
+    return findSupportedFormat({ VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT }, VK_IMAGE_TILING_OPTIMAL,
+                               VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
+}
+
+bool HelloTriangleApplication::hasStencilComponent(VkFormat format) {
+    return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;
 }
 
 // void HelloTriangleApplication::updatePos() {

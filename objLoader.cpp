@@ -30,6 +30,8 @@ void objloader::loadObj(ObjData &objData, const char *path) {
                 objFile >> newPos.x;
                 objFile >> newPos.y;
                 objFile >> newPos.z;
+
+                std::cout << "Read Position (" << newPos.x << ", " << newPos.y << ", " << newPos.z << ")." << std::endl;
                 // increment the counter and add it to the buffer
                 vertexPosCount++;
                 bufferVertexPos.push_back(newPos);
@@ -128,9 +130,9 @@ void objloader::loadObj(ObjData &objData, const char *path) {
             }
         } break;
         default:    // if I dont recognise the type I just skip the line
-            do {
+            while (buffer != '\n') {    // it is necessary that this be while and not a do while cause I don't always eat the last '\n' from a line
                 objFile.read(&buffer, 1);
-            } while (buffer != '\n');
+            }
             break;
         }
     } while (!objFile.eof());

@@ -83,18 +83,22 @@ private:
         glm::mat4 proj;     // projection matrix
     };
 
-    // Internal variables
-    const std::vector<Vertex> verticies = {
-        { { 0.5f, -0.5f, -0.5f }, { 0.0f, 0.0f, 1.0f }, { 1.0f, 0.0f, 0.0f } },    // constant values of vertices
-        { { 0.5f, 0.5f, -0.5f }, { 0.8f, 0.0f, 1.0f }, { 1.0f, 1.0f, 0.0f } },   { { 0.5f, 0.5f, 0.5f }, { 0.0f, 0.0f, 1.0f }, { 1.0f, 1.0f, 1.0f } },
-        { { 0.5f, -0.5f, 0.5f }, { 0.0f, 0.0f, 1.0f }, { 1.0f, 0.0f, 1.0f } },   { { -0.5f, -0.5f, 0.5f }, { 0.0f, 1.0f, 0.0f }, { 0.0f, 0.0f, 1.0f } },
-        { { -0.5f, -0.5f, -0.5f }, { 0.0f, 1.0f, 0.0f }, { 0.0f, 0.0f, 0.0f } }, { { -0.5f, 0.5f, 0.5f }, { 0.0f, 1.0f, 0.0f }, { 0.0f, 1.0f, 1.0f } },
-        { { -0.5f, 0.5f, -0.5f }, { 0.8f, 1.0f, 0.0f }, { 0.0f, 1.0f, 0.0f } }
-    };
+    // // Internal variables
+    // const std::vector<Vertex> verticies = {
+    //     { { 0.5f, -0.5f, -0.5f }, { 0.0f, 0.0f, 1.0f }, { 1.0f, 0.0f, 0.0f } },    // constant values of vertices
+    //     { { 0.5f, 0.5f, -0.5f }, { 0.8f, 0.0f, 1.0f }, { 1.0f, 1.0f, 0.0f } },   { { 0.5f, 0.5f, 0.5f }, { 0.0f, 0.0f, 1.0f }, { 1.0f, 1.0f, 1.0f } },
+    //     { { 0.5f, -0.5f, 0.5f }, { 0.0f, 0.0f, 1.0f }, { 1.0f, 0.0f, 1.0f } },   { { -0.5f, -0.5f, 0.5f }, { 0.0f, 1.0f, 0.0f }, { 0.0f, 0.0f, 1.0f } },
+    //     { { -0.5f, -0.5f, -0.5f }, { 0.0f, 1.0f, 0.0f }, { 0.0f, 0.0f, 0.0f } }, { { -0.5f, 0.5f, 0.5f }, { 0.0f, 1.0f, 0.0f }, { 0.0f, 1.0f, 1.0f } },
+    //     { { -0.5f, 0.5f, -0.5f }, { 0.8f, 1.0f, 0.0f }, { 0.0f, 1.0f, 0.0f } }
+    // };
 
-    const std::vector<uint16_t> verticiesIndices = {
-        0, 3, 1, 1, 3, 2, 0, 5, 3, 3, 5, 4, 3, 4, 2, 2, 4, 6, 0, 1, 5, 5, 1, 7, 5, 7, 4, 4, 7, 6, 7, 1, 6, 6, 1, 2
-    };    // in which order the verticies are to be drawn
+    // const std::vector<uint16_t> verticiesIndices = {
+    //     0, 3, 1, 1, 3, 2, 0, 5, 3, 3, 5, 4, 3, 4, 2, 2, 4, 6, 0, 1, 5, 5, 1, 7, 5, 7, 4, 4, 7, 6, 7, 1, 6, 6, 1, 2
+    // };    // in which order the verticies are to be drawn
+    // these data will now be loaded via the apropriate function
+
+    std::vector<Vertex> verticies;
+    std::vector<uint32_t> verticiesIndices;
 
     GLFWwindow *window;
     VkInstance instance;
@@ -136,6 +140,9 @@ private:
     VkDeviceMemory textureImageMemory;                   // the memory where the image will be stored
     VkImageView textureImageView;                        // the view of the texture image
     VkSampler textureSampler;                            // the handle for the sampling
+    VkImage depthImage;                                  // created to account for depth
+    VkDeviceMemory depthImageMemory;                     // the memory of the above
+    VkImageView depthImageView;                          // the image view of the depth image
     std::vector<const char *> deviceRequiredExtensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };    // required extension from the graphic card
 
     // to count the time
@@ -188,15 +195,20 @@ private:
     void createDescriptorSets();                                                       // now that we have a pool we can create sets
     void createTextureImage();                                                         // loads an image into memory
     void createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage &image,
-                     VkDeviceMemory &imageMemory);                                                          // loads the image into memory
+                     VkDeviceMemory &imageMemory, uint32_t arrayLayers, VkImageCreateFlags flags);          // loads the image into memory
     VkCommandBuffer beginSingleTimeCommands(VkCommandPool commandPool);                                     // will initialize a command buffer to make a single time commnad
     void endSingleTimeCommands(VkCommandBuffer commandBuffer, VkQueue queue, VkCommandPool commandPool);    // will terminate the buffer create in the above function
-    void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout);    // sets the image in the right layout so it can then be copied
+    void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t layers);    // sets the image in the right layout so it can then be copied
     void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);                         // will copy the image from buffer to image
     void createTextureImageView();                                                                                   // I create the image view for the textureimage
-    VkImageView createImageView(VkImage image, VkFormat format, VkImageViewType viewType, uint32_t layerCount);      // helper function to create an image view
-    void createTextureSampler();    // creates a textures sampler to tell the shader what sampling to apply when reading the image data
-    void loadModel();               // loads a model to memory
+    VkImageView createImageView(VkImage image, VkFormat format, VkImageViewType viewType, uint32_t layerCount,
+                                VkImageAspectFlags aspectFlag);    // helper function to create an image view
+    void createTextureSampler();                                   // creates a textures sampler to tell the shader what sampling to apply when reading the image data
+    void createDepthResources();                                   // creates the resource to deal with image depth
+    void loadModel();                                              // loads a model to memory
+    VkFormat findDepthFormat();                                    // finds the right depth format
+    bool hasStencilComponent(VkFormat format);                     // checks wether the given format supports stencil
+    VkFormat findSupportedFormat(const std::vector<VkFormat> &candidates, VkImageTiling tiling, VkFormatFeatureFlags features);    // finds the best format for the support thing
 };
 
 static std::vector<char> readFile(const std::string &path);    // loads the given file into memory
