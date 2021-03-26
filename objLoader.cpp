@@ -94,7 +94,7 @@ void objloader::loadObj(ObjData &objData, const char *path) {
 
             objFile.read(&buffer, 1);
 
-            if (buffer == ' ') {                            // check if there is a forth vertex and if so add it
+            while (buffer == ' ') {                            // check if there is a forth vertex and if so add it
                 objFile >> index;                           // read the position index
                 vertex.pos = bufferVertexPos[index - 1];    // save it into the position of the vertex
 
@@ -123,10 +123,11 @@ void objloader::loadObj(ObjData &objData, const char *path) {
                 }
 
                 // before adding the forth I read the last and the second to last so to have a valid triangle
-                objData.indexes.push_back(objData.indexes[objData.indexes.size() - 1]);
                 objData.indexes.push_back(objData.indexes[objData.indexes.size() - 3]);
+                objData.indexes.push_back(objData.indexes[objData.indexes.size() - 2]);
 
                 objData.indexes.push_back(indexV);
+                objFile.read(&buffer, 1);
             }
         } break;
         default:    // if I dont recognise the type I just skip the line
