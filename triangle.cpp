@@ -560,6 +560,8 @@ void HelloTriangleApplication::createGraphicsPipeline() {    // NOTE: I fear the
     depthStencil.depthCompareOp = VK_COMPARE_OP_LESS;    // it should pass the test if the new value is less than the previous
 
     depthStencil.depthBoundsTestEnable = VK_FALSE;    // I do not want to limit the depth to a specific range
+    depthStencil.maxDepthBounds        = 1.0f;
+    depthStencil.minDepthBounds        = 0.0f;
 
     depthStencil.stencilTestEnable = VK_FALSE;    // should try to understand what the fuck this is at a later time :)
 
@@ -571,7 +573,8 @@ void HelloTriangleApplication::createGraphicsPipeline() {    // NOTE: I fear the
     viewport.height = swapChainExtent.height;
     // the range of values for the frame buffer, in this case I set them to the default values
     viewport.minDepth = 0.0f;
-    viewport.maxDepth = 0.0f;
+    viewport.maxDepth = 1.0f;    // THIS WAS THE PROBLEM REEEEEEEEEE, FINALLY FOUND IT AHHHHHHHHHHHHHHHHHH 3hr spent playing with 0 and 1s
+                                 // I can now die a happy death
 
     // the scissor specify which area of the frame buffer is to be displayed, in this case one as big as the viewport
     VkRect2D scissor {};
@@ -691,7 +694,7 @@ void HelloTriangleApplication::createRenderPass() {
     depthAttachment.format         = findDepthFormat();
     depthAttachment.samples        = VK_SAMPLE_COUNT_1_BIT;
     depthAttachment.loadOp         = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    depthAttachment.storeOp        = VK_ATTACHMENT_STORE_OP_DONT_CARE;    // don't care about storing this data at all
+    depthAttachment.storeOp        = VK_ATTACHMENT_STORE_OP_STORE;    // don't care about storing this data at all
     depthAttachment.stencilLoadOp  = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
     depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
     depthAttachment.initialLayout  = VK_IMAGE_LAYOUT_UNDEFINED;
@@ -818,6 +821,7 @@ void HelloTriangleApplication::createCommandBuffers() {
         // same order as attachments
         clearValues[0].color        = { 0.0f, 0.0f, 0.0f, 1.0f };    // black with opacity 1
         clearValues[1].depthStencil = { 1.0f, 0 };                   // starting the fardest away that is possible
+
         beginRPInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
         beginRPInfo.pClearValues    = clearValues.data();
 
@@ -1153,13 +1157,13 @@ void HelloTriangleApplication::updateUniforBuffer(uint32_t currentImage) {
     float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
     UniformBufferObject ubo {};
-    ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));    // generates rotation matrix of pi/2 every second around the z axis
+    ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));    // generates rotation matrix of pi/2 every second around the z axis
 
     // ubo.model = glm::scale(
     //     ubo.model, glm::vec3(1.0f + glm::sin(time * glm::radians(45.0f)) / 2, 1.0f + glm::sin(time * glm::radians(45.0f)) / 2, 1.0f + glm::sin(time * glm::radians(45.0f)) / 2));
 
-    ubo.view = glm::lookAt(glm::vec3(50.0f, 50.0f, 50.0f) /*coordinates of the camera*/, glm::vec3(0.0f, 10.0f, 0.0f) /*where the camera is looking at*/,
-                           glm::vec3(0.0f, 1.0f, 0.0f) /*where is up*/);    // setting the camera
+    ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f) /*coordinates of the camera*/, glm::vec3(0.0f, 0.0f, 0.0f) /*where the camera is looking at*/,
+                           glm::vec3(0.0f, 0.0f, 1.0f) /*where is up*/);    // setting the camera
 
     ubo.proj = glm::perspective(glm::radians(45.0f) /*field of view*/, swapChainExtent.width / (float) swapChainExtent.height /*aspect ration*/, 0.1f /*near plain*/,
                                 1000.0f /*far plane(aka render distance)*/);
@@ -1402,8 +1406,10 @@ void HelloTriangleApplication::transitionImageLayout(VkImage image, VkFormat for
 
     if (newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
         barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;    // it will be used for depth
+        std::cout << "DEPTH THING DETECTED" << std::endl;
         if (hasStencilComponent(format)) {
             barrier.subresourceRange.aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;    // add stencil support if it is present
+            std::cout << "Stencil suport!!!!!!!!!!!!!!!!!!" << std::endl;
         }
     } else
         barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -1438,6 +1444,7 @@ void HelloTriangleApplication::transitionImageLayout(VkImage image, VkFormat for
 
         sourceStage      = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;             // START AT THE BEGINNING OF THE PIPELINE
         destinationStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;    // end by that stage
+        std::cout << "Transition to depth buffer" << std::endl;
     } else {
         throw std::invalid_argument("unsupported layout transition!");
     }
@@ -1533,7 +1540,7 @@ void HelloTriangleApplication::createTextureSampler() {
 
 void HelloTriangleApplication::loadModel() {
     objloader::ObjData objData;
-    objloader::loadObj(objData, "../models/Japanese_Temple.obj");    // read the data from file
+    objloader::loadObj(objData, "../models/viking_room.obj");    // read the data from file
 
     for (int i = 0; i < objData.verticies.size(); i++) {    // loads the verticies into the correct struct
         Vertex newVertex;
@@ -1587,12 +1594,9 @@ void HelloTriangleApplication::createTextureImage() {
 
     Pixel *pixels;
 
-    bmpRead("../textures/temple_Texture.bmp", texWidth, texHeight, pixels);
+    bmpRead("../textures/viking_room.bmp", texWidth, texHeight, pixels);
 
-    for (int i = 0; i < texWidth * texHeight; i++)
-        pixels[i].alpha = 255;
-
-        VkDeviceSize imageSize = texWidth * texHeight * 4;
+    VkDeviceSize imageSize = texWidth * texHeight * 4;
 
     VkBuffer stagingBuffer;
     VkDeviceMemory stagingBufferMemory;

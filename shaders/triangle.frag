@@ -20,4 +20,6 @@ void main() {
 
         outColor = texture(textSampler, textCoord);
     }
+    else
+        outColor = vec4(1.0,1.0,1.0,1.0);
 }

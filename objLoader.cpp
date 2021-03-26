@@ -31,7 +31,6 @@ void objloader::loadObj(ObjData &objData, const char *path) {
                 objFile >> newPos.y;
                 objFile >> newPos.z;
 
-                std::cout << "Read Position (" << newPos.x << ", " << newPos.y << ", " << newPos.z << ")." << std::endl;
                 // increment the counter and add it to the buffer
                 vertexPosCount++;
                 bufferVertexPos.push_back(newPos);

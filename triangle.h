@@ -2,6 +2,7 @@
 #define TRIANGLE_H_INCLIDE
 
 #define GLFW_INCLUDE_VULKAN
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #define GLM_FORCE_RADIANS
 
 #include <GLFW/glfw3.h>
@@ -198,9 +199,10 @@ private:
                      VkDeviceMemory &imageMemory, uint32_t arrayLayers, VkImageCreateFlags flags);          // loads the image into memory
     VkCommandBuffer beginSingleTimeCommands(VkCommandPool commandPool);                                     // will initialize a command buffer to make a single time commnad
     void endSingleTimeCommands(VkCommandBuffer commandBuffer, VkQueue queue, VkCommandPool commandPool);    // will terminate the buffer create in the above function
-    void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t layers);    // sets the image in the right layout so it can then be copied
-    void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height, uint32_t layers);                         // will copy the image from buffer to image
-    void createTextureImageView();                                                                                   // I create the image view for the textureimage
+    void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout,
+                               uint32_t layers);                                                                 // sets the image in the right layout so it can then be copied
+    void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height, uint32_t layers);    // will copy the image from buffer to image
+    void createTextureImageView();                                                                               // I create the image view for the textureimage
     VkImageView createImageView(VkImage image, VkFormat format, VkImageViewType viewType, uint32_t layerCount,
                                 VkImageAspectFlags aspectFlag);    // helper function to create an image view
     void createTextureSampler();                                   // creates a textures sampler to tell the shader what sampling to apply when reading the image data
