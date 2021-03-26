@@ -21,5 +21,5 @@ layout(location = 1) out vec3 fragTextCoord;
 void main() {
     gl_Position = ubo.proj * ubo.view * ubo.model * vec4(inPosition, 1.0);
     fragColor = inColor;
-    fragTextCoord = inPosition; // I have to give a normal vector, not the 2D coordinates of the texture :)
+    fragTextCoord = texCoord; // I have to give a normal vector, not the 2D coordinates of the texture :)
 }

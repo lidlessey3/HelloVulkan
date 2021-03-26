@@ -1158,7 +1158,7 @@ void HelloTriangleApplication::updateUniforBuffer(uint32_t currentImage) {
     // ubo.model = glm::scale(
     //     ubo.model, glm::vec3(1.0f + glm::sin(time * glm::radians(45.0f)) / 2, 1.0f + glm::sin(time * glm::radians(45.0f)) / 2, 1.0f + glm::sin(time * glm::radians(45.0f)) / 2));
 
-    ubo.view = glm::lookAt(glm::vec3(200.0f, 80.0f, 200.0f) /*coordinates of the camera*/, glm::vec3(0.0f, 0.0f, 0.0f) /*where the camera is looking at*/,
+    ubo.view = glm::lookAt(glm::vec3(50.0f, 50.0f, 50.0f) /*coordinates of the camera*/, glm::vec3(0.0f, 10.0f, 0.0f) /*where the camera is looking at*/,
                            glm::vec3(0.0f, 1.0f, 0.0f) /*where is up*/);    // setting the camera
 
     ubo.proj = glm::perspective(glm::radians(45.0f) /*field of view*/, swapChainExtent.width / (float) swapChainExtent.height /*aspect ration*/, 0.1f /*near plain*/,
@@ -1244,7 +1244,7 @@ void HelloTriangleApplication::createDescriptorSets() {
     }
 }
 
-void HelloTriangleApplication::createTextureImage() {
+void HelloTriangleApplication::createCubeTextureImage() {
     int texWidth, texHeight;
     Pixel *pixels;
     bmpRead("../textures/doggie-bmp.bmp", texWidth, texHeight, pixels);
@@ -1269,8 +1269,8 @@ void HelloTriangleApplication::createTextureImage() {
     createImage(texWidth, texHeight, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
                 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, textureImage, textureImageMemory, 6, VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT);
     transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                          6);                                                                                            // I transition the layout so it van be copied more easily
-    copyBufferToImage(staginBuffer, textureImage, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight));    // and copy the data from the buffer to the image
+                          6);    // I transition the layout so it van be copied more easily
+    copyBufferToImage(staginBuffer, textureImage, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight), 6);    // and copy the data from the buffer to the image
     transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                           6);    // and then preper it for the shader
 
@@ -1447,7 +1447,7 @@ void HelloTriangleApplication::transitionImageLayout(VkImage image, VkFormat for
     endSingleTimeCommands(commandBuffer, graphicsQueue, commandPool);    // ends the command buffer
 }
 
-void HelloTriangleApplication::copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height) {
+void HelloTriangleApplication::copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height, uint32_t layers) {
     VkCommandBuffer commandBuffer = beginSingleTimeCommands(commandPool);
 
     VkBufferImageCopy region {};    // data on the region to be copied
@@ -1458,7 +1458,7 @@ void HelloTriangleApplication::copyBufferToImage(VkBuffer buffer, VkImage image,
     region.imageSubresource.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
     region.imageSubresource.mipLevel       = 0;
     region.imageSubresource.baseArrayLayer = 0;
-    region.imageSubresource.layerCount     = 6;    // changing this to 6 instead of 1 since I now have a cube
+    region.imageSubresource.layerCount     = layers;    // changing this to 6 instead of 1 since I now have a cube
 
     // which part of the image we want to copy
     region.imageOffset = { 0, 0, 0 };
@@ -1469,7 +1469,7 @@ void HelloTriangleApplication::copyBufferToImage(VkBuffer buffer, VkImage image,
     endSingleTimeCommands(commandBuffer, graphicsQueue, commandPool);
 }
 
-void HelloTriangleApplication::createTextureImageView() {
+void HelloTriangleApplication::createCubeTextureImageView() {
     // very similar to the create image views
     textureImageView = createImageView(textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_VIEW_TYPE_CUBE, 6, VK_IMAGE_ASPECT_COLOR_BIT);
 }
@@ -1533,7 +1533,7 @@ void HelloTriangleApplication::createTextureSampler() {
 
 void HelloTriangleApplication::loadModel() {
     objloader::ObjData objData;
-    objloader::loadObj(objData, "../models/rat.obj");    // read the data from file
+    objloader::loadObj(objData, "../models/Japanese_Temple.obj");    // read the data from file
 
     for (int i = 0; i < objData.verticies.size(); i++) {    // loads the verticies into the correct struct
         Vertex newVertex;
@@ -1580,6 +1580,46 @@ VkFormat HelloTriangleApplication::findDepthFormat() {
 
 bool HelloTriangleApplication::hasStencilComponent(VkFormat format) {
     return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;
+}
+
+void HelloTriangleApplication::createTextureImage() {
+    int texWidth, texHeight;
+
+    Pixel *pixels;
+
+    bmpRead("../textures/temple_Texture.bmp", texWidth, texHeight, pixels);
+
+    for (int i = 0; i < texWidth * texHeight; i++)
+        pixels[i].alpha = 255;
+
+        VkDeviceSize imageSize = texWidth * texHeight * 4;
+
+    VkBuffer stagingBuffer;
+    VkDeviceMemory stagingBufferMemory;
+    createBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+
+    void *data;
+    vkMapMemory(device, stagingBufferMemory, 0, imageSize, 0, &data);
+    memcpy(data, pixels, static_cast<size_t>(imageSize));
+    vkUnmapMemory(device, stagingBufferMemory);
+
+    delete[] pixels;
+
+    createImage(texWidth, texHeight, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+                VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, textureImage, textureImageMemory, 1, 0);
+    transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                          1);    // I transition the layout so it van be copied more easily
+    copyBufferToImage(stagingBuffer, textureImage, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight), 1);    // and copy the data from the buffer to the image
+    transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                          1);    // and then preper it for the shader
+
+    // cleaning up stuff
+    vkDestroyBuffer(device, stagingBuffer, nullptr);
+    vkFreeMemory(device, stagingBufferMemory, nullptr);
+}
+
+void HelloTriangleApplication::createTextureImageView() {
+    textureImageView = createImageView(textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_VIEW_TYPE_2D, 1, VK_IMAGE_ASPECT_COLOR_BIT);
 }
 
 // void HelloTriangleApplication::updatePos() {
