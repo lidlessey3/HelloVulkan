@@ -295,7 +295,7 @@ void HelloTriangleApplication::getQueueFamilies() {
     if (indices.presentFamily.has_value())
         this->indices.presentFamily = indices.presentFamily;
     if (indices.transferFamily.has_value())
-        this->indices.transferFamily = indices.presentFamily;
+        this->indices.transferFamily = indices.transferFamily;
 }
 
 HelloTriangleApplication::QueueFamilyIndices HelloTriangleApplication::getQueueFamilies(VkPhysicalDevice physicalDevice) {
